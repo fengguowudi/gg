@@ -1,3 +1,5 @@
+//go:build linux
+
 package tracer
 
 import (
@@ -386,10 +388,11 @@ func (t *Tracer) handleINet6(socketInfo *SocketMetadata, bSockAddr []byte) (sock
 	if ip.Is4In6() {
 		ip = netip.AddrFrom4(ip.As4())
 	}
-	if ip.IsLoopback() && !(network == "udp" && targetPort == 53) {
-		// skip loopback
+	isDNS := network == "udp" && targetPort == 53
+	if (network == "tcp" || network == "udp") && (ip.IsLoopback() || (t.ignorePrivateAddr && ip.IsPrivate())) && !isDNS {
+		// skip loopback/private
 		// but only keep DNS packets sent to the port 53
-		t.log.Tracef("skip loopback: %v", netip.AddrPortFrom(ip, binary.BigEndian.Uint16(addr.Port[:])).String())
+		t.log.Tracef("skip loopback/private: %v", netip.AddrPortFrom(ip, binary.BigEndian.Uint16(addr.Port[:])).String())
 		return nil, nil
 	}
 	var originAddr string

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/mzz2017/gg/common"
 	"github.com/mzz2017/gg/dialer"
-	"github.com/mzz2017/softwind/protocol/http"
+	"github.com/mzz2017/gg/dialer/transport/httpproxy"
 	"gopkg.in/yaml.v3"
 	"net"
 	"net/url"
@@ -114,7 +114,7 @@ func ParseClash(o *yaml.Node) (data *HTTP, err error) {
 
 func (s *HTTP) Dialer() (*dialer.Dialer, error) {
 	u := s.URL()
-	d, err := http.NewHTTPProxy(&u, dialer.SymmetricDirect)
+	d, err := httpproxy.New(&u, dialer.SymmetricDirect)
 	if err != nil {
 		return nil, err
 	}

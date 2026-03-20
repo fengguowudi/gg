@@ -2,7 +2,7 @@ name: Release
 
 on:
   release:
-    types: [prereleased]
+    types: [prereleased, released]
   push:
     branches:
       - main
@@ -20,15 +20,22 @@ on:
       - "go.mod"
       - "go.sum"
       - ".github/workflows/*.yml"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (e.g. v1.0.0). Leave empty to use commit-based version.'
+        required: false
+        default: ''
 
 jobs:
   build:
     strategy:
       matrix:
         goos: [linux]
-        goarch: [amd64, arm64]
+        goarch: [amd64, arm64, 386, mips, mipsle, mips64, mips64le, riscv64]
+        goarm: ['']
         include:
-          # BEGIN Linux ARM 5 6 7
+          # Linux ARM variants
           - goos: linux
             goarch: arm
             goarm: 7
@@ -38,7 +45,27 @@ jobs:
           - goos: linux
             goarch: arm
             goarm: 5
-          # END Linux ARM 5 6 7
+          # macOS
+          - goos: darwin
+            goarch: amd64
+            goarm: ''
+          - goos: darwin
+            goarch: arm64
+            goarm: ''
+          # FreeBSD
+          - goos: freebsd
+            goarch: amd64
+            goarm: ''
+          - goos: freebsd
+            goarch: arm64
+            goarm: ''
+          # Windows
+          - goos: windows
+            goarch: amd64
+            goarm: ''
+          - goos: windows
+            goarch: arm64
+            goarm: ''
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -50,15 +77,19 @@ jobs:
 
     steps:
       - name: Checkout codebase
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: Get the version
         id: get_version
         env:
           REF: ${{ github.ref }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          if [[ "$REF" == "refs/tags/v"* ]]; then
+          if [[ -n "$INPUT_TAG" ]]; then
+            version="$INPUT_TAG"
+          elif [[ "$REF" == "refs/tags/v"* ]]; then
             tag=$(git describe --tags $(git rev-list --tags --max-count=1))
             version=${tag}
           else
@@ -67,47 +98,64 @@ jobs:
             commit=$(git rev-parse --short HEAD)
             version="test-$date.r${count}.$commit"
           fi
-          echo ::set-output name=VERSION::"$version"
-          echo "VERSION=$version" >> $GITHUB_ENV
+          echo "VERSION=$version" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Show workflow information
         id: get_filename
         run: |
           export _NAME=$(jq ".[\"$GOOS-$GOARCH$GOARM\"].friendlyName" -r < release/friendly-filenames.json)
-          echo "GOOS: $GOOS, GOARCH: $GOARCH, RELEASE_NAME: $_NAME"
-          echo "::set-output name=ASSET_NAME::$_NAME"
-          echo "ASSET_NAME=$_NAME" >> $GITHUB_ENV
+          echo "GOOS: $GOOS, GOARCH: $GOARCH, GOARM: $GOARM, RELEASE_NAME: $_NAME"
+          echo "ASSET_NAME=$_NAME" >> "$GITHUB_OUTPUT"
+          echo "ASSET_NAME=$_NAME" >> "$GITHUB_ENV"
+
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          stable: true
-          go-version: '1.18'
+          go-version: '1.24'
+          check-latest: true
 
       - name: Get project dependencies
         run: go mod download
 
       - name: Build gg
         run: |
-          go build -v -o gg-$ASSET_NAME -trimpath -ldflags "-X github.com/mzz2017/gg/cmd.Version=${{ steps.get_version.outputs.VERSION }} -s -w -buildid=" .
-          upx gg-$ASSET_NAME
-      
+          SUFFIX=""
+          if [ "$GOOS" = "windows" ]; then
+            SUFFIX=".exe"
+          fi
+          go build -v -o gg-${ASSET_NAME}${SUFFIX} -trimpath -ldflags "-X github.com/mzz2017/gg/cmd.Version=${{ steps.get_version.outputs.VERSION }} -s -w -buildid=" .
+
+      - name: UPX compress
+        if: matrix.goos == 'linux' && (matrix.goarch == 'amd64' || matrix.goarch == 'arm64' || matrix.goarch == 'arm' || matrix.goarch == '386')
+        run: |
+          sudo apt-get update && sudo apt-get install -y upx-ucl
+          SUFFIX=""
+          upx gg-${ASSET_NAME}${SUFFIX} || true
+
       - name: Smoking test
-        if: matrix.goarch == 'amd64'
-        run: ./gg-$ASSET_NAME --version
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: chmod +x ./gg-$ASSET_NAME && ./gg-$ASSET_NAME --version
 
       - name: Signature
         run: |
-          FILE=./gg-$ASSET_NAME
+          SUFFIX=""
+          if [ "$GOOS" = "windows" ]; then
+            SUFFIX=".exe"
+          fi
+          FILE=./gg-${ASSET_NAME}${SUFFIX}
           DGST=$FILE.dgst
           openssl dgst -md5    $FILE | sed 's/([^)]*)//g' >>$DGST
           openssl dgst -sha1   $FILE | sed 's/([^)]*)//g' >>$DGST
           openssl dgst -sha256 $FILE | sed 's/([^)]*)//g' >>$DGST
           openssl dgst -sha512 $FILE | sed 's/([^)]*)//g' >>$DGST
+
       - name: Upload files to Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: gg-${{ steps.get_filename.outputs.ASSET_NAME }}
-          path: gg-${{ steps.get_filename.outputs.ASSET_NAME }}
+          path: |
+            gg-${{ steps.get_filename.outputs.ASSET_NAME }}*
 
       - name: Upload files to GitHub release
         uses: svenstaro/upload-release-action@v2

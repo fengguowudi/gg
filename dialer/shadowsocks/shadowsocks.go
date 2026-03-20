@@ -121,7 +121,7 @@ func ParseClash(o *yaml.Node) (data *Shadowsocks, err error) {
 	if option.Plugin == "obfs" {
 		data.Plugin.Name = "simple-obfs"
 		data.Plugin.Opts.Obfs = option.PluginOpts.Mode
-		data.Plugin.Opts.Host = data.Plugin.Opts.Host
+		data.Plugin.Opts.Host = option.PluginOpts.Host
 		if data.Plugin.Opts.Host == "" {
 			data.Plugin.Opts.Host = "bing.com"
 		}

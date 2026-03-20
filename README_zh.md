@@ -309,21 +309,30 @@ complete -c gg -x -a "(__fish_complete_gg_subcommand)"
 ### 协议类型
 
 - [x] HTTP(S)
-- [x] Socks5
+- [x] Socks
+  - [x] Socks4
+  - [x] Socks4a
+  - [x] Socks5
 - [x] VMess(AEAD, alterID=0) / VLESS
     - [x] TCP
     - [x] WS
     - [x] TLS
+    - [x] H2
+    - [x] mKCP
     - [x] GRPC
+    - [x] REALITY (仅 VLESS)
 - [x] Shadowsocks
     - [x] AEAD Ciphers
-    - [x] Stream Ciphers
-    - [x] simple-obfs (not tested)
+    - [x] simple-obfs
     - [ ] v2ray-plugin
 - [x] ShadowsocksR
 - [x] Trojan
     - [x] Trojan-gfw
     - [x] Trojan-go
+    - [x] WS
+    - [x] GRPC
+- [x] Hysteria2
+- [x] AnyTLS
 
 ### 订阅类型
 

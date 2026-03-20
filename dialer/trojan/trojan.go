@@ -4,15 +4,10 @@ import (
 	"fmt"
 	"github.com/mzz2017/gg/common"
 	"github.com/mzz2017/gg/dialer"
-	"github.com/mzz2017/gg/dialer/transport/tls"
-	"github.com/mzz2017/gg/dialer/transport/ws"
-	"github.com/mzz2017/softwind/protocol"
-	"github.com/mzz2017/softwind/transport/grpc"
 	"gopkg.in/yaml.v3"
 	"net"
 	"net/url"
 	"strconv"
-	"strings"
 )
 
 func init() {
@@ -59,68 +54,7 @@ func NewTrojanFromClashObj(o *yaml.Node, opt *dialer.GlobalOption) (*dialer.Dial
 }
 
 func (s *Trojan) Dialer() (*dialer.Dialer, error) {
-	d := dialer.SymmetricDirect
-	u := url.URL{
-		Scheme: "tls",
-		Host:   net.JoinHostPort(s.Server, strconv.Itoa(s.Port)),
-		RawQuery: url.Values{
-			"sni":           []string{s.Sni},
-			"allowInsecure": []string{common.BoolToString(s.AllowInsecure)},
-		}.Encode(),
-	}
-	var err error
-	if s.Type != "grpc" {
-		// grpc contains tls
-		if d, err = tls.NewTls(u.String(), d); err != nil {
-			return nil, err
-		}
-	}
-	// "tls,ws,ss,trojanc"
-	switch s.Type {
-	case "ws":
-		u = url.URL{
-			Scheme: "ws",
-			Host:   net.JoinHostPort(s.Server, strconv.Itoa(s.Port)),
-			RawQuery: url.Values{
-				"host":          []string{s.Host},
-				"path":          []string{s.Path},
-				"allowInsecure": []string{common.BoolToString(s.AllowInsecure)},
-			}.Encode(),
-		}
-		if d, err = ws.NewWs(u.String(), d); err != nil {
-			return nil, err
-		}
-	case "grpc":
-		serviceName := s.ServiceName
-		if serviceName == "" {
-			serviceName = "GunService"
-		}
-		d = &grpc.Dialer{
-			NextDialer:    &protocol.DialerConverter{Dialer: d},
-			ServiceName:   serviceName,
-			ServerName:    s.Sni,
-			AllowInsecure: s.AllowInsecure,
-		}
-	}
-	if strings.HasPrefix(s.Encryption, "ss;") {
-		fields := strings.SplitN(s.Encryption, ";", 3)
-		if d, err = protocol.NewDialer("shadowsocks", d, protocol.Header{
-			ProxyAddress: net.JoinHostPort(s.Server, strconv.Itoa(s.Port)),
-			Cipher:       fields[1],
-			Password:     fields[2],
-			IsClient:     false,
-		}); err != nil {
-			return nil, err
-		}
-	}
-	if d, err = protocol.NewDialer("trojanc", d, protocol.Header{
-		ProxyAddress: net.JoinHostPort(s.Server, strconv.Itoa(s.Port)),
-		Password:     s.Password,
-		IsClient:     true,
-	}); err != nil {
-		return nil, err
-	}
-	return dialer.NewDialer(d, true, s.Name, s.Protocol, s.ExportToURL()), nil
+	return newSagerNetTrojanDialer(s)
 }
 
 func ParseTrojanURL(u string) (data *Trojan, err error) {

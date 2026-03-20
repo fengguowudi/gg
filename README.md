@@ -325,16 +325,22 @@ complete -c gg -x -a "(__fish_complete_gg_subcommand)"
   - [x] TCP
   - [x] WS
   - [x] TLS
+  - [x] H2
+  - [x] mKCP
   - [x] GRPC
+  - [x] REALITY (VLESS only)
 - [x] Shadowsocks
   - [x] AEAD Ciphers
-  - [x] simple-obfs (not tested)
-  - [x] Stream Ciphers
+  - [x] simple-obfs
   - [ ] v2ray-plugin
 - [x] ShadowsocksR
 - [x] Trojan
   - [x] Trojan-gfw
   - [x] Trojan-go
+  - [x] WS
+  - [x] GRPC
+- [x] Hysteria2
+- [x] AnyTLS
 
 ### Subscription
 

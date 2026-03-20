@@ -6,10 +6,6 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/mzz2017/gg/common"
 	"github.com/mzz2017/gg/dialer"
-	"github.com/mzz2017/gg/dialer/transport/tls"
-	"github.com/mzz2017/gg/dialer/transport/ws"
-	"github.com/mzz2017/softwind/protocol"
-	"github.com/mzz2017/softwind/transport/grpc"
 	"gopkg.in/yaml.v3"
 	"net"
 	"net/url"
@@ -38,6 +34,9 @@ type V2Ray struct {
 	TLS           string `json:"tls"`
 	Flow          string `json:"flow,omitempty"`
 	Alpn          string `json:"alpn,omitempty"`
+	PublicKey     string `json:"pbk,omitempty"`
+	ShortID       string `json:"sid,omitempty"`
+	Fingerprint   string `json:"fp,omitempty"`
 	AllowInsecure bool   `json:"allowInsecure"`
 	V             string `json:"v"`
 	Protocol      string `json:"protocol"`
@@ -83,83 +82,10 @@ func NewVMessFromClashObj(o *yaml.Node, opt *dialer.GlobalOption) (*dialer.Diale
 }
 
 func (s *V2Ray) Dialer() (data *dialer.Dialer, err error) {
-	var (
-		d = dialer.SymmetricDirect
-	)
-
-	switch strings.ToLower(s.Net) {
-	case "ws":
-		scheme := "ws"
-		if s.TLS == "tls" || s.TLS == "xtls" {
-			scheme = "wss"
-		}
-		sni := s.SNI
-		if sni == "" {
-			sni = s.Host
-		}
-		u := url.URL{
-			Scheme: scheme,
-			Host:   net.JoinHostPort(s.Add, s.Port),
-			Path:   s.Path,
-			RawQuery: url.Values{
-				"host": []string{s.Host},
-				"sni":  []string{sni},
-			}.Encode(),
-		}
-		d, err = ws.NewWs(u.String(), d)
-		if err != nil {
-			return nil, err
-		}
-	case "tcp":
-		if s.TLS == "tls" || s.TLS == "xtls" {
-			sni := s.SNI
-			if sni == "" {
-				sni = s.Host
-			}
-			u := url.URL{
-				Scheme: "tls",
-				Host:   net.JoinHostPort(s.Add, s.Port),
-				RawQuery: url.Values{
-					"sni":           []string{sni},
-					"allowInsecure": []string{common.BoolToString(s.AllowInsecure)},
-				}.Encode(),
-			}
-			d, err = tls.NewTls(u.String(), d)
-			if err != nil {
-				return nil, err
-			}
-		}
-		if s.Type != "none" && s.Type != "" {
-			return nil, fmt.Errorf("%w: type: %v", dialer.UnexpectedFieldErr, s.Type)
-		}
-	case "grpc":
-		sni := s.SNI
-		if sni == "" {
-			sni = s.Host
-		}
-		serviceName := s.Path
-		if serviceName == "" {
-			serviceName = "GunService"
-		}
-		d = &grpc.Dialer{
-			NextDialer:    &protocol.DialerConverter{Dialer: d},
-			ServiceName:   serviceName,
-			ServerName:    sni,
-			AllowInsecure: s.AllowInsecure,
-		}
-	default:
-		return nil, fmt.Errorf("%w: network: %v", dialer.UnexpectedFieldErr, s.Net)
+	if s.Protocol == "vless" && s.TLS == "reality" {
+		return newRealityVLESSDialer(s)
 	}
-
-	if d, err = protocol.NewDialer(s.Protocol, d, protocol.Header{
-		ProxyAddress: net.JoinHostPort(s.Add, s.Port),
-		Cipher:       "aes-128-gcm",
-		Password:     s.ID,
-		IsClient:     true,
-	}); err != nil {
-		return nil, err
-	}
-	return dialer.NewDialer(d, true, s.Ps, s.Protocol, s.ExportToURL()), nil
+	return newSagerNetV2RayDialer(s)
 }
 
 func ParseClashVMess(o *yaml.Node) (data *V2Ray, err error) {
@@ -259,6 +185,9 @@ func ParseVlessURL(vless string) (data *V2Ray, err error) {
 		TLS:           u.Query().Get("security"),
 		Flow:          u.Query().Get("flow"),
 		Alpn:          u.Query().Get("alpn"),
+		PublicKey:     u.Query().Get("pbk"),
+		ShortID:       u.Query().Get("sid"),
+		Fingerprint:   u.Query().Get("fp"),
 		AllowInsecure: common.StringToBool(u.Query().Get("allowInsecure")),
 		Protocol:      "vless",
 	}
@@ -275,7 +204,11 @@ func ParseVlessURL(vless string) (data *V2Ray, err error) {
 		data.TLS = "none"
 	}
 	if data.Flow == "" {
-		data.Flow = "xtls-rprx-direct"
+		if data.TLS == "reality" {
+			data.Flow = "xtls-rprx-vision"
+		} else {
+			data.Flow = "xtls-rprx-direct"
+		}
 	}
 	if data.Type == "mkcp" || data.Type == "kcp" {
 		data.Path = u.Query().Get("seed")
@@ -387,7 +320,15 @@ func (s *V2Ray) ExportToURL() string {
 			common.SetValue(&query, "alpn", s.Alpn)
 			common.SetValue(&query, "allowInsecure", common.BoolToString(s.AllowInsecure))
 		}
+		if s.TLS == "reality" {
+			common.SetValue(&query, "pbk", s.PublicKey)
+			common.SetValue(&query, "sid", s.ShortID)
+			common.SetValue(&query, "fp", s.Fingerprint)
+		}
 		if s.TLS == "xtls" {
+			common.SetValue(&query, "flow", s.Flow)
+		}
+		if s.TLS == "reality" {
 			common.SetValue(&query, "flow", s.Flow)
 		}
 

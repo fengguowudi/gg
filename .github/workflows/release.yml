@@ -32,7 +32,7 @@ jobs:
     strategy:
       matrix:
         goos: [linux]
-        goarch: [amd64, arm64, 386, mips, mipsle, mips64, mips64le, riscv64]
+        goarch: [amd64, arm64]
         goarm: ['']
         include:
           # Linux ARM variants

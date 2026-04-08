@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 5
+- **Total Sessions**: 6
 - **Last Active**: 2026-04-08
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~272 | Active |
+| `journal-1.md` | ~327 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits |
 |---|------|-------|---------|
+| 6 | 2026-04-08 | Fix HTTP proxy CONNECT handshake for SSH | `5fa7d8d` |
 | 5 | 2026-04-08 | Support configurable DNS parameter | `8a763a7` |
 | 4 | 2026-04-08 | Add Linux/386 support and Linux-only release workflow | `889f9d5` |
 | 3 | 2026-04-08 | Fix Trojan-go WebSocket path configuration | `33e70a6` |

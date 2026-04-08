@@ -270,3 +270,58 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: Fix HTTP proxy CONNECT handshake for SSH
+
+**Date**: 2026-04-08
+**Task**: Fix HTTP proxy CONNECT handshake for SSH
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Area | Description |
+|------|-------------|
+| HTTP proxy tunnel fix | Fixed HTTP CONNECT handshake behavior so SSH and other non-HTTP protocols can establish tunnels reliably even when reads happen before the first application write. |
+| Buffered tunnel data | Preserved bytes buffered while parsing the proxy `200 Connection Established` response, preventing early tunnel payload such as SSH banners from being lost. |
+| Regression tests | Added focused transport tests covering read-first CONNECT startup and immediate tunneled payload delivery after CONNECT success. |
+| Break-loop documentation | Captured the bug class into backend quality guidance and the cross-layer thinking guide so future transport-layer fixes explicitly consider handshake ordering and buffered-reader ownership. |
+| Template sync | Synced the updated spec guidance into `src/templates/markdown/spec/` templates. |
+| Task tracking | Archived the completed `04-08-fix-http-proxy-ssh` Trellis task. |
+
+**Updated Files**:
+- `dialer/transport/httpproxy/conn.go`
+- `dialer/transport/httpproxy/conn_test.go`
+- `.trellis/spec/backend/quality-guidelines.md`
+- `.trellis/spec/guides/cross-layer-thinking-guide.md`
+- `src/templates/markdown/spec/backend/quality-guidelines.md`
+- `src/templates/markdown/spec/guides/cross-layer-thinking-guide.md`
+- `.trellis/tasks/archive/2026-04/04-08-fix-http-proxy-ssh/prd.md`
+- `.trellis/tasks/archive/2026-04/04-08-fix-http-proxy-ssh/task.json`
+
+**Verification**:
+- `go test ./dialer/transport/httpproxy`
+- `go test ./dialer/http`
+- `go test ./...`
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5fa7d8d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

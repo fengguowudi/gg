@@ -154,3 +154,60 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: Add Linux/386 support and Linux-only release workflow
+
+**Date**: 2026-04-08
+**Task**: Add Linux/386 support and Linux-only release workflow
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Area | Description |
+|------|-------------|
+| Linux/386 runtime support | Added Linux/386 tracer syscall adaptation, including socketcall decoding, so the project now builds correctly for `GOOS=linux GOARCH=386`. |
+| Tracer structure | Refactored tracer syscall dispatch so architecture-specific decoding is routed through a common interface while keeping existing non-386 Linux behavior intact. |
+| Release automation | Updated GitHub Actions release workflow to build Linux targets only, explicitly including `linux/386`, and removed Windows and other non-Linux targets from automated builds. |
+| Documentation | Updated README support lists to mark `Linux/386` as supported. |
+| Verification | Confirmed host tests still pass and verified Linux/386 build and tracer compile targets. |
+| Task tracking | Archived the completed `04-08-add-linux-386-support` Trellis task. |
+
+**Updated Files**:
+- `.github/workflows/release.yml`
+- `README.md`
+- `README_zh.md`
+- `tracer/stop_handler.go`
+- `tracer/stop_handler_test.go`
+- `tracer/syscall_kind.go`
+- `tracer/syscall_decode_default.go`
+- `tracer/syscall_linux_386.go`
+- `.trellis/tasks/archive/2026-04/04-08-add-linux-386-support/prd.md`
+- `.trellis/tasks/archive/2026-04/04-08-add-linux-386-support/task.json`
+
+**Verification**:
+- `go test ./...`
+- `GOOS=linux GOARCH=386 go test -c ./tracer`
+- `GOOS=linux GOARCH=386 go build ./...`
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `889f9d5` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

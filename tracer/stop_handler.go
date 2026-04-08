@@ -41,7 +41,7 @@ func (t *Tracer) saveArgsToStorehouse(pid, inst int, args []uint64) {
 func (t *Tracer) saveConnectRedirection(pid int, sockAddrPtr uintptr, originalSockAddr []byte, originalLen uint64, lenArgOrder int) {
 	copiedSockAddr := make([]byte, len(originalSockAddr))
 	copy(copiedSockAddr, originalSockAddr)
-	t.storehouse.Save(pid, syscall.SYS_CONNECT, connectRedirection{
+	t.storehouse.Save(pid, traceSysConnect, connectRedirection{
 		sockAddrPtr:      sockAddrPtr,
 		originalSockAddr: copiedSockAddr,
 		originalLen:      originalLen,
@@ -50,11 +50,11 @@ func (t *Tracer) saveConnectRedirection(pid int, sockAddrPtr uintptr, originalSo
 }
 
 func (t *Tracer) restoreConnectRedirection(pid int, regs *syscall.PtraceRegs) error {
-	v, ok := t.storehouse.Get(pid, syscall.SYS_CONNECT)
+	v, ok := t.storehouse.Get(pid, traceSysConnect)
 	if !ok {
 		return nil
 	}
-	t.storehouse.Remove(pid, syscall.SYS_CONNECT)
+	t.storehouse.Remove(pid, traceSysConnect)
 
 	state, ok := v.(connectRedirection)
 	if !ok {
@@ -67,13 +67,14 @@ func (t *Tracer) restoreConnectRedirection(pid int, regs *syscall.PtraceRegs) er
 	if _, err := ptracePokeDataFunc(pid, state.sockAddrPtr, state.originalSockAddr); err != nil {
 		return fmt.Errorf("restore connect address: %w", err)
 	}
-	if Argument(regs, state.lenArgOrder) == state.originalLen {
+	currentLen, err := readArgumentValue(pid, regs, state.lenArgOrder)
+	if err != nil {
+		return fmt.Errorf("read connect address length: %w", err)
+	}
+	if currentLen == state.originalLen {
 		return nil
 	}
-
-	newRegs := *regs
-	setArgument(&newRegs, state.lenArgOrder, state.originalLen)
-	if err := ptraceSetRegsFunc(pid, &newRegs); err != nil {
+	if err := writeArgumentValue(pid, regs, state.lenArgOrder, state.originalLen); err != nil {
 		return fmt.Errorf("restore connect address length: %w", err)
 	}
 	return nil
@@ -82,11 +83,14 @@ func (t *Tracer) restoreConnectRedirection(pid int, regs *syscall.PtraceRegs) er
 func (t *Tracer) exitHandler(pid int, regs *syscall.PtraceRegs) (err error) {
 	//t.log.Infof("exitHandler: pid: %v,inst: %v", pid, inst(regs))
 	//defer t.log.Infof("exitHandler: pid: %v,inst: %v: end", pid, inst(regs))
-	inst := inst(regs)
-	switch inst {
-	case syscall.SYS_SOCKET:
+	syscallKind, args, err := decodeSyscall(pid, regs)
+	if err != nil {
+		return err
+	}
+	switch syscallKind {
+	case traceSysSocket:
 		//t.log.Tracef("exitHandler: SOCKET: %v, inst: %v", pid, inst)
-		args, err := t.getArgsFromStorehouse(pid, inst)
+		args, err := t.getArgsFromStorehouse(pid, syscallKind)
 		if err != nil {
 			t.log.Infoln(err)
 			return nil
@@ -105,10 +109,10 @@ func (t *Tracer) exitHandler(pid int, regs *syscall.PtraceRegs) (err error) {
 		}
 		t.saveSocketInfo(pid, fd, socketInfo)
 		t.log.Tracef("new socket (%v): pid: %v, fd %v", t.network(&socketInfo), pid, fd)
-	case syscall.SYS_FCNTL:
+	case traceSysFcntl:
 		//t.log.Tracef("exitHandler: FCNTL: %v, inst: %v", pid, inst)
 		// syscall.SYS_FCNTL can be used to duplicate the file descriptor.
-		args, err := t.getArgsFromStorehouse(pid, inst)
+		args, err := t.getArgsFromStorehouse(pid, syscallKind)
 		if err != nil {
 			t.log.Traceln(err)
 			return nil
@@ -131,13 +135,16 @@ func (t *Tracer) exitHandler(pid int, regs *syscall.PtraceRegs) (err error) {
 		}
 		t.saveSocketInfo(pid, newFD, *socketInfo)
 		t.log.Tracef("SYS_FCNTL: copy %v -> %v", fd, newFD)
-	case syscall.SYS_CLOSE:
+	case traceSysClose:
 		//t.log.Tracef("exitHandler: CLOSE: %v, inst: %v", pid, inst)
 		// we do not need to know if it succeeded
-		fd := Argument(regs, 0)
+		if len(args) == 0 {
+			return nil
+		}
+		fd := args[0]
 		t.removeSocketInfo(pid, int(fd))
 		t.log.Tracef("close: pid: %v, fd %v", pid, fd)
-	case syscall.SYS_CONNECT:
+	case traceSysConnect:
 		if err := t.restoreConnectRedirection(pid, regs); err != nil {
 			return err
 		}
@@ -148,8 +155,11 @@ func (t *Tracer) exitHandler(pid int, regs *syscall.PtraceRegs) (err error) {
 func (t *Tracer) entryHandler(pid int, regs *syscall.PtraceRegs) (err error) {
 	//t.log.Infof("entryHandler: pid: %v,inst: %v", pid, inst(regs))
 	//defer t.log.Infof("entryHandler: pid: %v,inst: %v: end", pid, inst(regs))
-	args := arguments(regs)
-	switch inst(regs) {
+	syscallKind, args, err := decodeSyscall(pid, regs)
+	if err != nil {
+		return err
+	}
+	switch syscallKind {
 	//case syscall.SYS_CLONE:
 	//	//t.log.Tracef("entryHandler: clone: %v", pid)
 	//	newRegs := *regs
@@ -157,10 +167,10 @@ func (t *Tracer) entryHandler(pid int, regs *syscall.PtraceRegs) (err error) {
 	//	if err = ptraceSetRegs(pid, &newRegs); err != nil {
 	//		return err
 	//	}
-	case syscall.SYS_SOCKET, syscall.SYS_FCNTL:
+	case traceSysSocket, traceSysFcntl:
 		//t.log.Tracef("entryHandler: SOCKET, FCNTL: %v, inst: %v", pid, inst(regs))
-		t.saveArgsToStorehouse(pid, inst(regs), args)
-	case syscall.SYS_CONNECT, syscall.SYS_SENDTO:
+		t.saveArgsToStorehouse(pid, syscallKind, args)
+	case traceSysConnect, traceSysSendto:
 		fd := args[0]
 		t.log.Tracef("syscall.SYS_CONNECT, syscall.SYS_SENDTO: pid: %v, fd: %v", pid, fd)
 		socketInfo, ok := t.checkSocket(pid, fd)
@@ -174,13 +184,13 @@ func (t *Tracer) entryHandler(pid int, regs *syscall.PtraceRegs) (err error) {
 			pSockAddr, sockAddrLen uint64
 			orderSockAddrLen       int
 		)
-		switch inst(regs) {
-		case syscall.SYS_CONNECT:
+		switch syscallKind {
+		case traceSysConnect:
 			t.log.Tracef("syscall.SYS_CONNECT")
 			pSockAddr = args[1]
 			sockAddrLen = args[2]
 			orderSockAddrLen = 2
-		case syscall.SYS_SENDTO:
+		case traceSysSendto:
 			t.log.Tracef("syscall.SYS_SENDTO")
 			pSockAddr = args[4]
 			sockAddrLen = args[5]
@@ -209,7 +219,7 @@ func (t *Tracer) entryHandler(pid int, regs *syscall.PtraceRegs) (err error) {
 			if err = pokeAddrToArgument(pid, regs, bSockAddrToPock, uintptr(pSockAddr), orderSockAddrLen); err != nil {
 				return fmt.Errorf("pokeAddrToArgument: %w", err)
 			}
-			if inst(regs) == syscall.SYS_CONNECT {
+			if syscallKind == traceSysConnect {
 				t.saveConnectRedirection(pid, uintptr(pSockAddr), bSockAddr, sockAddrLen, orderSockAddrLen)
 			}
 		case syscall.AF_INET6:
@@ -223,11 +233,11 @@ func (t *Tracer) entryHandler(pid int, regs *syscall.PtraceRegs) (err error) {
 			if err = pokeAddrToArgument(pid, regs, bSockAddrToPock, uintptr(pSockAddr), orderSockAddrLen); err != nil {
 				return fmt.Errorf("pokeAddrToArgument: %w", err)
 			}
-			if inst(regs) == syscall.SYS_CONNECT {
+			if syscallKind == traceSysConnect {
 				t.saveConnectRedirection(pid, uintptr(pSockAddr), bSockAddr, sockAddrLen, orderSockAddrLen)
 			}
 		}
-	case syscall.SYS_SENDMSG:
+	case traceSysSendmsg:
 		fd := args[0]
 		t.log.Tracef("syscall.SYS_SENDMSG: pid: %v, fd: %v", pid, fd)
 		socketInfo, ok := t.checkSocket(pid, fd)
@@ -298,13 +308,15 @@ func pokeAddrToArgument(pid int, regs *syscall.PtraceRegs, bAddrToPoke []byte, p
 	if _, err = syscall.PtracePokeData(pid, pSockAddr, bAddrToPoke); err != nil {
 		return fmt.Errorf("pokeAddrToArgument: %w", err)
 	}
-	if Argument(regs, orderSockAddrLen) == uint64(len(bAddrToPoke)) {
+	currentLen, err := readArgumentValue(pid, regs, orderSockAddrLen)
+	if err != nil {
+		return fmt.Errorf("read addr len for connect: %w", err)
+	}
+	if currentLen == uint64(len(bAddrToPoke)) {
 		// they are the same, so there is no need to set the len
 		return nil
 	}
-	newRegs := *regs
-	setArgument(&newRegs, orderSockAddrLen, uint64(len(bAddrToPoke)))
-	if err = ptraceSetRegs(pid, &newRegs); err != nil {
+	if err = writeArgumentValue(pid, regs, orderSockAddrLen, uint64(len(bAddrToPoke))); err != nil {
 		return fmt.Errorf("set addr len for connect: %w", err)
 	}
 	return nil

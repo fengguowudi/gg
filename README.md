@@ -312,7 +312,7 @@ complete -c gg -x -a "(__fish_complete_gg_subcommand)"
 - [x] Linux/amd64
 - [x] Linux/arm
 - [x] Linux/arm64
-- [ ] Linux/386
+- [x] Linux/386
 
 ### Protocol
 

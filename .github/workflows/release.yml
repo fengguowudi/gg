@@ -32,7 +32,7 @@ jobs:
     strategy:
       matrix:
         goos: [linux]
-        goarch: [amd64, arm64]
+        goarch: [amd64, 386, arm64]
         goarm: ['']
         include:
           # Linux ARM variants
@@ -45,27 +45,6 @@ jobs:
           - goos: linux
             goarch: arm
             goarm: 5
-          # macOS
-          - goos: darwin
-            goarch: amd64
-            goarm: ''
-          - goos: darwin
-            goarch: arm64
-            goarm: ''
-          # FreeBSD
-          - goos: freebsd
-            goarch: amd64
-            goarm: ''
-          - goos: freebsd
-            goarch: arm64
-            goarm: ''
-          # Windows
-          - goos: windows
-            goarch: amd64
-            goarm: ''
-          - goos: windows
-            goarch: arm64
-            goarm: ''
       fail-fast: false
 
     runs-on: ubuntu-22.04
@@ -120,18 +99,13 @@ jobs:
 
       - name: Build gg
         run: |
-          SUFFIX=""
-          if [ "$GOOS" = "windows" ]; then
-            SUFFIX=".exe"
-          fi
-          go build -v -o gg-${ASSET_NAME}${SUFFIX} -trimpath -ldflags "-X github.com/mzz2017/gg/cmd.Version=${{ steps.get_version.outputs.VERSION }} -s -w -buildid=" .
+          go build -v -o gg-${ASSET_NAME} -trimpath -ldflags "-X github.com/mzz2017/gg/cmd.Version=${{ steps.get_version.outputs.VERSION }} -s -w -buildid=" .
 
       - name: UPX compress
         if: matrix.goos == 'linux' && (matrix.goarch == 'amd64' || matrix.goarch == 'arm64' || matrix.goarch == 'arm' || matrix.goarch == '386')
         run: |
           sudo apt-get update && sudo apt-get install -y upx-ucl
-          SUFFIX=""
-          upx gg-${ASSET_NAME}${SUFFIX} || true
+          upx gg-${ASSET_NAME} || true
 
       - name: Smoking test
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
@@ -139,11 +113,7 @@ jobs:
 
       - name: Signature
         run: |
-          SUFFIX=""
-          if [ "$GOOS" = "windows" ]; then
-            SUFFIX=".exe"
-          fi
-          FILE=./gg-${ASSET_NAME}${SUFFIX}
+          FILE=./gg-${ASSET_NAME}
           DGST=$FILE.dgst
           openssl dgst -md5    $FILE | sed 's/([^)]*)//g' >>$DGST
           openssl dgst -sha1   $FILE | sed 's/([^)]*)//g' >>$DGST

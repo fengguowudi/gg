@@ -89,7 +89,7 @@ func TestRestoreConnectRedirectionRestoresOriginalSockaddrAndLength(t *testing.T
 	if gotLenArg != originalLen {
 		t.Fatalf("unexpected restored length: got %d want %d", gotLenArg, originalLen)
 	}
-	if _, ok := tr.storehouse.Get(pid, syscall.SYS_CONNECT); ok {
+	if _, ok := tr.storehouse.Get(pid, traceSysConnect); ok {
 		t.Fatal("connect redirection state should be removed after restore")
 	}
 }

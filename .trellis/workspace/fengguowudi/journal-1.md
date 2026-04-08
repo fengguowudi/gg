@@ -211,3 +211,62 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: Support configurable DNS parameter
+
+**Date**: 2026-04-08
+**Task**: Support configurable DNS parameter
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Area | Description |
+|------|-------------|
+| CLI and config | Added a user-facing `--dns` parameter and a persisted `dns` config key so DNS upstream selection can be controlled temporarily or stored with `gg config`. |
+| DNS forwarding path | Replaced the hardcoded DNS upstream fallback in the proxy UDP path with configurable selection while preserving existing default behavior when `dns` is unset. |
+| Normalization | Added DNS server normalization so values like `1.1.1.1`, `dns.google`, or IPv6 literals are normalized to include port `53` when omitted. |
+| Regression tests | Added focused proxy tests covering DNS target fallback and DNS server normalization. |
+| Documentation | Updated README config examples to show the new `dns` config entry. |
+| Task tracking | Archived the completed `04-08-support-configurable-dns` Trellis task. |
+
+**Updated Files**:
+- `config/config.go`
+- `cmd/cmd.go`
+- `cmd/config.go`
+- `proxy/proxy.go`
+- `proxy/udp.go`
+- `proxy/udp_test.go`
+- `tracer/tracer.go`
+- `tracer/tracer_unsupported.go`
+- `tracer/stop_handler_test.go`
+- `README.md`
+- `README_zh.md`
+- `.trellis/tasks/archive/2026-04/04-08-support-configurable-dns/prd.md`
+- `.trellis/tasks/archive/2026-04/04-08-support-configurable-dns/task.json`
+
+**Verification**:
+- `go test ./proxy`
+- `go test ./...`
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8a763a7` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

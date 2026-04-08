@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	io2 "github.com/mzz2017/softwind/pkg/zeroalloc/io"
+	"io"
 	"net"
 	"net/netip"
 	"time"
@@ -32,26 +33,41 @@ func (p *Proxy) handleTCP(conn net.Conn) error {
 	return nil
 }
 
-
 type WriteCloser interface {
 	CloseWrite() error
 }
 
+func relayOneWay(dst, src net.Conn, eCh chan<- error) {
+	_, err := io2.Copy(dst, src)
+	if err == nil || errors.Is(err, io.EOF) {
+		if dst, ok := dst.(WriteCloser); ok {
+			_ = dst.CloseWrite()
+		}
+		eCh <- nil
+		return
+	}
+
+	now := time.Now()
+	_ = dst.SetDeadline(now)
+	_ = src.SetDeadline(now)
+	eCh <- err
+}
+
 func RelayTCP(lConn, rConn net.Conn) (err error) {
 	eCh := make(chan error, 1)
-	go func() {
-		_, e := io2.Copy(rConn, lConn)
-		if rConn, ok := rConn.(WriteCloser); ok {
-			rConn.CloseWrite()
-		}
-		rConn.SetReadDeadline(time.Now().Add(10 * time.Second))
-		eCh <- e
-	}()
+	go relayOneWay(rConn, lConn, eCh)
+
 	_, e := io2.Copy(lConn, rConn)
-	if lConn, ok := lConn.(WriteCloser); ok {
-		lConn.CloseWrite()
+	if e == nil || errors.Is(e, io.EOF) {
+		if lConn, ok := lConn.(WriteCloser); ok {
+			_ = lConn.CloseWrite()
+		}
+		return <-eCh
 	}
-	lConn.SetReadDeadline(time.Now().Add(10 * time.Second))
+
+	now := time.Now()
+	_ = lConn.SetDeadline(now)
+	_ = rConn.SetDeadline(now)
 	if e != nil {
 		<-eCh
 		return e

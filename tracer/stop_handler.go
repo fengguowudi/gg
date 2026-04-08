@@ -15,6 +15,16 @@ import (
 	"github.com/mzz2017/gg/proxy"
 )
 
+var ptracePokeDataFunc = syscall.PtracePokeData
+var ptraceSetRegsFunc = ptraceSetRegs
+
+type connectRedirection struct {
+	sockAddrPtr      uintptr
+	originalSockAddr []byte
+	originalLen      uint64
+	lenArgOrder      int
+}
+
 func (t *Tracer) getArgsFromStorehouse(pid, inst int) ([]uint64, error) {
 	v, ok := t.storehouse.Get(pid, inst)
 	if !ok {
@@ -26,6 +36,47 @@ func (t *Tracer) getArgsFromStorehouse(pid, inst int) ([]uint64, error) {
 
 func (t *Tracer) saveArgsToStorehouse(pid, inst int, args []uint64) {
 	t.storehouse.Save(pid, inst, args)
+}
+
+func (t *Tracer) saveConnectRedirection(pid int, sockAddrPtr uintptr, originalSockAddr []byte, originalLen uint64, lenArgOrder int) {
+	copiedSockAddr := make([]byte, len(originalSockAddr))
+	copy(copiedSockAddr, originalSockAddr)
+	t.storehouse.Save(pid, syscall.SYS_CONNECT, connectRedirection{
+		sockAddrPtr:      sockAddrPtr,
+		originalSockAddr: copiedSockAddr,
+		originalLen:      originalLen,
+		lenArgOrder:      lenArgOrder,
+	})
+}
+
+func (t *Tracer) restoreConnectRedirection(pid int, regs *syscall.PtraceRegs) error {
+	v, ok := t.storehouse.Get(pid, syscall.SYS_CONNECT)
+	if !ok {
+		return nil
+	}
+	t.storehouse.Remove(pid, syscall.SYS_CONNECT)
+
+	state, ok := v.(connectRedirection)
+	if !ok {
+		return fmt.Errorf("unexpected connect redirection state: %T", v)
+	}
+	if len(state.originalSockAddr) == 0 {
+		return nil
+	}
+
+	if _, err := ptracePokeDataFunc(pid, state.sockAddrPtr, state.originalSockAddr); err != nil {
+		return fmt.Errorf("restore connect address: %w", err)
+	}
+	if Argument(regs, state.lenArgOrder) == state.originalLen {
+		return nil
+	}
+
+	newRegs := *regs
+	setArgument(&newRegs, state.lenArgOrder, state.originalLen)
+	if err := ptraceSetRegsFunc(pid, &newRegs); err != nil {
+		return fmt.Errorf("restore connect address length: %w", err)
+	}
+	return nil
 }
 
 func (t *Tracer) exitHandler(pid int, regs *syscall.PtraceRegs) (err error) {
@@ -86,6 +137,10 @@ func (t *Tracer) exitHandler(pid int, regs *syscall.PtraceRegs) (err error) {
 		fd := Argument(regs, 0)
 		t.removeSocketInfo(pid, int(fd))
 		t.log.Tracef("close: pid: %v, fd %v", pid, fd)
+	case syscall.SYS_CONNECT:
+		if err := t.restoreConnectRedirection(pid, regs); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -154,6 +209,9 @@ func (t *Tracer) entryHandler(pid int, regs *syscall.PtraceRegs) (err error) {
 			if err = pokeAddrToArgument(pid, regs, bSockAddrToPock, uintptr(pSockAddr), orderSockAddrLen); err != nil {
 				return fmt.Errorf("pokeAddrToArgument: %w", err)
 			}
+			if inst(regs) == syscall.SYS_CONNECT {
+				t.saveConnectRedirection(pid, uintptr(pSockAddr), bSockAddr, sockAddrLen, orderSockAddrLen)
+			}
 		case syscall.AF_INET6:
 			var bSockAddrToPock []byte
 			if bSockAddrToPock, err = t.handleINet6(socketInfo, bSockAddr); err != nil {
@@ -164,6 +222,9 @@ func (t *Tracer) entryHandler(pid int, regs *syscall.PtraceRegs) (err error) {
 			}
 			if err = pokeAddrToArgument(pid, regs, bSockAddrToPock, uintptr(pSockAddr), orderSockAddrLen); err != nil {
 				return fmt.Errorf("pokeAddrToArgument: %w", err)
+			}
+			if inst(regs) == syscall.SYS_CONNECT {
+				t.saveConnectRedirection(pid, uintptr(pSockAddr), bSockAddr, sockAddrLen, orderSockAddrLen)
 			}
 		}
 	case syscall.SYS_SENDMSG:
@@ -312,7 +373,6 @@ func (t *Tracer) network(socketInfo *SocketMetadata) string {
 
 func (t *Tracer) handleINet4(socketInfo *SocketMetadata, bSockAddr []byte) (sockAddrToPock []byte, err error) {
 	network := t.network(socketInfo)
-	portHackTo := t.portHackTo(socketInfo)
 	addr := *(*RawSockaddrInet4)(unsafe.Pointer(&bSockAddr[0]))
 	targetPort := binary.BigEndian.Uint16(addr.Port[:])
 	if network == "udp" && targetPort == 0 {
@@ -333,6 +393,7 @@ func (t *Tracer) handleINet4(socketInfo *SocketMetadata, bSockAddr []byte) (sock
 		t.log.Tracef("skip loopback/private: %v", netip.AddrPortFrom(ip, binary.BigEndian.Uint16(addr.Port[:])).String())
 		return nil, nil
 	}
+	portHackTo := t.portHackTo(socketInfo)
 	//logrus.Traceln("before", bSockAddr)
 	originAddr := net.JoinHostPort(
 		netip.AddrFrom4(addr.Addr).String(),
@@ -369,7 +430,6 @@ func (t *Tracer) handleINet4(socketInfo *SocketMetadata, bSockAddr []byte) (sock
 
 func (t *Tracer) handleINet6(socketInfo *SocketMetadata, bSockAddr []byte) (sockAddrToPock []byte, err error) {
 	network := t.network(socketInfo)
-	portHackTo := t.portHackTo(socketInfo)
 
 	addr := *(*RawSockaddrInet6)(unsafe.Pointer(&bSockAddr[0]))
 	targetPort := binary.BigEndian.Uint16(addr.Port[:])
@@ -395,6 +455,7 @@ func (t *Tracer) handleINet6(socketInfo *SocketMetadata, bSockAddr []byte) (sock
 		t.log.Tracef("skip loopback/private: %v", netip.AddrPortFrom(ip, binary.BigEndian.Uint16(addr.Port[:])).String())
 		return nil, nil
 	}
+	portHackTo := t.portHackTo(socketInfo)
 	var originAddr string
 	if proxy.ReservedPrefix.Contains(ip) {
 		originAddr = net.JoinHostPort(

@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "dialer/trojan/trojan.go", "reason": "Current Trojan-go URL parse and export logic"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Keep parser and export changes within package-level error conventions"}

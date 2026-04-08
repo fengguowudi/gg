@@ -92,8 +92,16 @@ func ParseTrojanURL(u string) (data *Trojan, err error) {
 		data.Protocol = "trojan-go"
 		data.Encryption = t.Query().Get("encryption")
 		data.Host = t.Query().Get("host")
-		data.Path = t.Query().Get("path")
 		data.Type = t.Query().Get("type")
+		if data.Type == "ws" || data.Type == "websocket" {
+			if t.Path != "" {
+				data.Path = t.Path
+			} else {
+				data.Path = t.Query().Get("path")
+			}
+		} else {
+			data.Path = t.Query().Get("path")
+		}
 		data.ServiceName = t.Query().Get("serviceName")
 		if data.Type == "grpc" && data.ServiceName == "" {
 			data.ServiceName = data.Path
@@ -168,7 +176,11 @@ func (t *Trojan) ExportToURL() string {
 		common.SetValue(&q, "host", t.Host)
 		common.SetValue(&q, "encryption", t.Encryption)
 		common.SetValue(&q, "type", t.Type)
-		common.SetValue(&q, "path", t.Path)
+		if t.Type == "ws" || t.Type == "websocket" {
+			u.Path = t.Path
+		} else {
+			common.SetValue(&q, "path", t.Path)
+		}
 	}
 	u.RawQuery = q.Encode()
 	return u.String()

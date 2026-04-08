@@ -1,0 +1,4 @@
+{"file": ".agents/skills/finish-work/SKILL.md", "reason": "Finish work checklist"}
+{"file": ".agents/skills/check-backend/SKILL.md", "reason": "Backend check spec"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Check regression coverage and transport behavior"}
+{"file": ".trellis/tasks/04-08-fix-http-proxy-ssh/prd.md", "reason": "Verify SSH tunnel support scope"}

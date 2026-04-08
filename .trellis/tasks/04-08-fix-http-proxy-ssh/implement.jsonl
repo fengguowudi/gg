@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Add focused package-local transport tests"}
+{"file": "dialer/http/http_test.go", "reason": "Existing HTTP proxy test style"}

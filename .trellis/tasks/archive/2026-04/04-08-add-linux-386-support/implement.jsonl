@@ -1,7 +1,0 @@
-{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
-{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
-{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Avoid unnecessary logging changes while touching tracer and workflow"}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Cross-arch build verification and focused changes"}
-{"file": ".github/workflows/release.yml", "reason": "Current release build matrix to convert to Linux-only"}
-{"file": "tracer/stop_handler.go", "reason": "Current tracer syscall rewrite logic to generalize for 386 socketcall"}
-{"file": ".trellis/tasks/04-08-add-linux-386-support/prd.md", "reason": "Task requirements and Linux/386 build acceptance criteria"}

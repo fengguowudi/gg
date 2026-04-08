@@ -1,4 +1,0 @@
-{"file": ".agents/skills/finish-work/SKILL.md", "reason": "Finish work checklist"}
-{"file": ".agents/skills/check-backend/SKILL.md", "reason": "Backend check spec"}
-{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Verify cross-arch build checks and workflow edits"}
-{"file": ".trellis/tasks/04-08-add-linux-386-support/prd.md", "reason": "Verify Linux/386 scope and acceptance criteria"}

@@ -15,7 +15,7 @@ var ErrUnsupportedPlatform = fmt.Errorf("tracer is only supported on linux")
 
 type Tracer struct{}
 
-func New(ctx context.Context, name string, argv []string, attr *os.ProcAttr, dialer *dialer.Dialer, ignoreUDP bool, ignorePrivateAddr bool, logger *logrus.Logger) (*Tracer, error) {
+func New(ctx context.Context, name string, argv []string, attr *os.ProcAttr, dialer *dialer.Dialer, ignoreUDP bool, ignorePrivateAddr bool, dnsServer string, logger *logrus.Logger) (*Tracer, error) {
 	return nil, ErrUnsupportedPlatform
 }
 

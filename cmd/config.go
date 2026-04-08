@@ -185,6 +185,7 @@ func getConfig(log *logrus.Logger, bindToConfig bool, newViper func() *viper.Vip
 	if flagCmd != nil {
 		v.BindPFlag("no_udp", flagCmd.PersistentFlags().Lookup("noudp"))
 		v.BindPFlag("proxy_private", flagCmd.PersistentFlags().Lookup("proxyprivate"))
+		v.BindPFlag("dns", flagCmd.PersistentFlags().Lookup("dns"))
 		v.BindPFlag("test_node_before_use", flagCmd.PersistentFlags().Lookup("testnode"))
 		if node, _ := flagCmd.PersistentFlags().GetString("node"); node != "" {
 			//log.Warn("Please use --node only on trusted computers, because it may leave a record in command history.")

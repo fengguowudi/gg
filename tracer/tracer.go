@@ -37,14 +37,14 @@ type Tracer struct {
 	exitErr           error
 }
 
-func New(ctx context.Context, name string, argv []string, attr *os.ProcAttr, dialer *dialer.Dialer, ignoreUDP bool, ignorePrivateAddr bool, logger *logrus.Logger) (*Tracer, error) {
+func New(ctx context.Context, name string, argv []string, attr *os.ProcAttr, dialer *dialer.Dialer, ignoreUDP bool, ignorePrivateAddr bool, dnsServer string, logger *logrus.Logger) (*Tracer, error) {
 	t := &Tracer{
 		ctx:               ctx,
 		ignoreUDP:         ignoreUDP,
 		ignorePrivateAddr: ignorePrivateAddr,
 		supportUDP:        dialer.SupportUDP(),
 		log:               logger,
-		proxy:             proxy.New(logger, dialer),
+		proxy:             proxy.New(logger, dialer, dnsServer),
 		proc:              &os.Process{},
 		storehouse:        MakeStorehouse(),
 		socketInfo:        make(map[int]map[int]SocketMetadata),

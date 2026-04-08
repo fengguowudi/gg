@@ -16,6 +16,7 @@ import (
 const (
 	DefaultNatTimeout = 3 * time.Minute
 	DnsQueryTimeout   = 17 * time.Second // RFC 5452
+	DefaultDNSServer  = "1.1.1.1:53"
 )
 
 type HijackResp struct {
@@ -40,7 +41,7 @@ func (p *Proxy) handleUDP(lAddr net.Addr, data []byte) (err error) {
 				_, err = p.udpConn.WriteTo(hijackResp.Resp, lAddr)
 				return err
 			case dnsmessage.TypeA:
-				respData, respMsg, e := forwardDNSMessage(tgt, data)
+				respData, respMsg, e := forwardDNSMessage(p.dnsTarget(tgt), data)
 				if e != nil {
 					p.log.Tracef("will not restore INET4 ICMP target: forwardDNSMessage: %v", e)
 					_, err = p.udpConn.WriteTo(hijackResp.Resp, lAddr)
@@ -79,7 +80,7 @@ func (p *Proxy) handleUDP(lAddr net.Addr, data []byte) (err error) {
 		// is other DNS request type
 		if d, ok := p.dialer.(*dialer.Dialer); ok && !d.SupportUDP() {
 			// bypass
-			respData, _, err := forwardDNSMessage(tgt, data)
+			respData, _, err := forwardDNSMessage(p.dnsTarget(tgt), data)
 			if err != nil {
 				return fmt.Errorf("forwardDNSMessage: %w", err)
 			}
@@ -87,7 +88,7 @@ func (p *Proxy) handleUDP(lAddr net.Addr, data []byte) (err error) {
 			return err
 		}
 		// continue to forward DNS request but use replaced DNS server.
-		tgt = "1.1.1.1:53"
+		tgt = p.dnsTarget(DefaultDNSServer)
 	}
 	if d, ok := p.dialer.(*dialer.Dialer); ok && !d.SupportUDP() {
 		return fmt.Errorf("receive an unexpected UDP request to target %v: dialer does not support UDP", tgt)
@@ -105,6 +106,30 @@ func (p *Proxy) handleUDP(lAddr net.Addr, data []byte) (err error) {
 		return fmt.Errorf("write error: %w", err)
 	}
 	return nil
+}
+
+func (p *Proxy) dnsTarget(fallback string) string {
+	if p.dnsServer != "" {
+		return p.dnsServer
+	}
+	return fallback
+}
+
+func normalizeDNSServer(server string) string {
+	server = strings.TrimSpace(server)
+	if server == "" {
+		return ""
+	}
+	if host, port, err := net.SplitHostPort(server); err == nil && host != "" && port != "" {
+		return net.JoinHostPort(host, port)
+	}
+	if addr, err := netip.ParseAddr(server); err == nil {
+		return net.JoinHostPort(addr.String(), "53")
+	}
+	if !strings.Contains(server, ":") {
+		return net.JoinHostPort(server, "53")
+	}
+	return server
 }
 
 func (p *Proxy) hijackDNS(data []byte) (resp *HijackResp, isDNSQuery bool) {

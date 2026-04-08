@@ -23,19 +23,21 @@ type Proxy struct {
 	listener    net.Listener
 	udpConn     *net.UDPConn
 	dialer      proxy.Dialer
+	dnsServer   string
 	closed      chan struct{}
 	tcpListened chan struct{}
 
 	nm *UDPConnMapping
 }
 
-func New(logger *logrus.Logger, dialer proxy.Dialer) *Proxy {
+func New(logger *logrus.Logger, dialer proxy.Dialer, dnsServer string) *Proxy {
 	return &Proxy{
 		addrMapper:   NewLoopbackMapper(),
 		domainMapper: NewReservedMapper(),
 		realIPMapper: NewRealIPMapper(),
 		log:          logger,
 		dialer:       dialer,
+		dnsServer:    normalizeDNSServer(dnsServer),
 		closed:       make(chan struct{}),
 		tcpListened:  make(chan struct{}),
 		nm:           NewUDPConnMapping(),

@@ -208,6 +208,7 @@ gg config
 > subscription.select=first
 > subscription.cache_last_node=true
 > cache.subscription.last_node=trojan-go://MY_TROJAN_GO_SERVER_SHARE_LINK
+> dns=
 > no_udp=false
 > test_node_before_use=true
 > ```

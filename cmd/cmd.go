@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/mzz2017/gg/cmd/infra"
+	"github.com/mzz2017/gg/config"
 	"github.com/mzz2017/gg/tracer"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -122,6 +123,7 @@ $ gg git clone https://github.com/mzz2017/gg.git`)
 				dialer,
 				noUDP,
 				!proxyPrivate,
+				config.ParamsObj.DNS,
 				log,
 			)
 			if err != nil {
@@ -157,6 +159,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("subscription", "s", "", "subscription-link of your modern proxy")
 	rootCmd.PersistentFlags().Bool("noudp", false, "do not redirect UDP traffic, even though the proxy server supports")
 	rootCmd.PersistentFlags().Bool("proxyprivate", false, "redirect traffic to private address")
+	rootCmd.PersistentFlags().String("dns", "", "upstream DNS server for hijacked DNS queries, e.g. 1.1.1.1 or 1.1.1.1:53")
 	rootCmd.PersistentFlags().String("testnode", "true", "test the connectivity before connecting to the node")
 	rootCmd.PersistentFlags().Bool("select", false, "manually select the node to connect from the subscription")
 	rootCmd.AddCommand(configCmd)

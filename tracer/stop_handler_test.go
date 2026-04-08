@@ -21,7 +21,7 @@ func newTestTracer(t *testing.T, ignorePrivateAddr bool) *Tracer {
 		ignorePrivateAddr: ignorePrivateAddr,
 		supportUDP:        true,
 		log:               logrus.New(),
-		proxy:             proxy.New(logrus.New(), nil),
+		proxy:             proxy.New(logrus.New(), nil, ""),
 		storehouse:        MakeStorehouse(),
 	}
 }

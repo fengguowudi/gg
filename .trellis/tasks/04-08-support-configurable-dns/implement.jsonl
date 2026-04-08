@@ -1,0 +1,10 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": "cmd/cmd.go", "reason": "Current root flag definitions and tracer construction"}
+{"file": "proxy/udp.go", "reason": "Current hardcoded DNS upstream behavior"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Add focused package-local tests"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Keep config and proxy errors within existing boundaries"}
+{"file": "config/config.go", "reason": "Current persisted config schema"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "Avoid unnecessary logging changes around DNS handling"}
+{"file": "cmd/config.go", "reason": "Current config binding behavior for root flags"}
+{"file": ".trellis/tasks/04-08-support-configurable-dns/prd.md", "reason": "Task requirements and acceptance criteria"}

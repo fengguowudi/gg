@@ -106,3 +106,51 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Fix Trojan-go WebSocket path configuration
+
+**Date**: 2026-04-08
+**Task**: Fix Trojan-go WebSocket path configuration
+
+### Summary
+
+(Add summary)
+
+### Main Changes
+
+| Area | Description |
+|------|-------------|
+| URL export fix | Updated Trojan-go WebSocket URL export to place the WebSocket path in the URL path segment instead of emitting a `path` query parameter. |
+| Parser compatibility | Updated Trojan-go URL parsing to read the WebSocket path from `URL.Path` first while keeping the legacy `path` query form as a compatibility fallback. |
+| Regression tests | Added focused Trojan dialer tests covering path-based parsing, legacy query fallback, and export behavior without redundant `path` query output. |
+| Task tracking | Archived the completed `04-08-fix-trojan-go-ws-path` Trellis task. |
+
+**Updated Files**:
+- `dialer/trojan/trojan.go`
+- `dialer/trojan/trojan_test.go`
+- `.trellis/tasks/archive/2026-04/04-08-fix-trojan-go-ws-path/prd.md`
+- `.trellis/tasks/archive/2026-04/04-08-fix-trojan-go-ws-path/task.json`
+
+**Verification**:
+- `go test ./dialer/trojan`
+- `go test ./...`
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `33e70a6` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
